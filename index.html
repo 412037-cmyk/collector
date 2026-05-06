@@ -1,1 +1,141 @@
-diojnioguliflyfgug.uio;yio;uhiyfgie57
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Collect | Firebase 版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background: #f8fafc; min-height: 100vh; font-family: sans-serif; }
+        .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.5); }
+        .hidden { display: none; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto">
+        <header class="glass rounded-3xl p-6 mb-8 flex justify-between items-center shadow-sm">
+            <h1 class="text-2xl font-bold text-indigo-600"><i class="fas fa-hubspot mr-2"></i>Premium Collect</h1>
+            <div id="authSection">
+                <button id="btnLogin" class="bg-white border px-4 py-2 rounded-xl shadow-sm hover:bg-gray-50 flex items-center gap-2">
+                    <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" width="20"> Google 登入
+                </button>
+                <div id="userInfo" class="hidden flex items-center gap-4">
+                    <span id="userName" class="text-sm font-medium"></span>
+                    <button id="btnLogout" class="text-red-500 text-sm underline">登出</button>
+                </div>
+            </div>
+        </header>
+
+        <section id="addSection" class="hidden glass rounded-3xl p-6 mb-8 shadow-sm">
+            <h2 class="text-lg font-bold mb-4">新增收藏資源</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <input type="text" id="resTitle" placeholder="資源名稱" class="border p-2 rounded-lg outline-none focus:ring-2 focus:ring-indigo-300">
+                <input type="text" id="resDesc" placeholder="簡短描述" class="border p-2 rounded-lg outline-none focus:ring-2 focus:ring-indigo-300">
+                <input type="file" id="resImg" accept="image/*" class="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+            </div>
+            <button id="btnSave" class="mt-4 bg-indigo-600 text-white px-6 py-2 rounded-xl hover:bg-indigo-700 transition">儲存到雲端</button>
+        </section>
+
+        <div id="itemsGrid" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAvzbn38rNQPmIwELxKUyVZBEyjpAat-oQ",
+            authDomain: "collector-dca62.firebaseapp.com",
+            projectId: "collector-dca62",
+            storageBucket: "collector-dca62.firebasestorage.app",
+            messagingSenderId: "552195102938",
+            appId: "1:552195102938:web:f03f20465829bd424dade3"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+
+        // --- 登入功能 ---
+        document.getElementById('btnLogin').onclick = () => signInWithPopup(auth, provider);
+        document.getElementById('btnLogout').onclick = () => signOut(auth);
+
+        onAuthStateChanged(auth, (user) => {
+            const authSection = document.getElementById('btnLogin');
+            const userInfo = document.getElementById('userInfo');
+            const addSection = document.getElementById('addSection');
+            
+            if (user) {
+                authSection.classList.add('hidden');
+                userInfo.classList.remove('hidden');
+                addSection.classList.remove('hidden');
+                document.getElementById('userName').innerText = `你好，${user.displayName}`;
+                loadData(); // 登入後讀取資料
+            } else {
+                authSection.classList.remove('hidden');
+                userInfo.classList.add('hidden');
+                addSection.classList.add('hidden');
+                document.getElementById('itemsGrid').innerHTML = '<p class="col-span-full text-center py-10 text-gray-400">請先登入以查看收藏</p>';
+            }
+        });
+
+        // --- 處理圖片轉 Base64 ---
+        const toBase64 = file => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
+
+        // --- 儲存資料到 Firestore ---
+        document.getElementById('btnSave').onclick = async () => {
+            const title = document.getElementById('resTitle').value;
+            const desc = document.getElementById('resDesc').value;
+            const imgFile = document.getElementById('resImg').files[0];
+
+            if (!title || !imgFile) return alert("請填寫名稱並選擇圖片");
+
+            try {
+                const base64Img = await toBase64(imgFile);
+                await addDoc(collection(db, "resources"), {
+                    title: title,
+                    desc: desc,
+                    image: base64Img,
+                    userId: auth.currentUser.uid,
+                    createdAt: new Date()
+                });
+                alert("儲存成功！");
+                document.getElementById('resTitle').value = '';
+                document.getElementById('resDesc').value = '';
+            } catch (e) {
+                console.error("儲存失敗", e);
+            }
+        };
+
+        // --- 即時讀取資料 ---
+        function loadData() {
+            const q = query(collection(db, "resources"), orderBy("createdAt", "desc"));
+            onSnapshot(q, (snapshot) => {
+                const grid = document.getElementById('itemsGrid');
+                grid.innerHTML = '';
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const card = `
+                        <div class="glass p-4 rounded-3xl shadow-sm hover:shadow-md transition">
+                            <img src="${data.image}" class="w-full h-40 object-cover rounded-2xl mb-4">
+                            <h3 class="font-bold text-gray-800">${data.title}</h3>
+                            <p class="text-sm text-gray-500">${data.desc}</p>
+                        </div>
+                    `;
+                    grid.insertAdjacentHTML('beforeend', card);
+                });
+            });
+        }
+    </script>
+</body>
+</html>
