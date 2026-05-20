@@ -3,50 +3,146 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Premium Collect | Firebase 版</title>
+    <title>Premium Collect | Firebase 雙模穩定版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        body { background: #f8fafc; min-height: 100vh; font-family: sans-serif; }
-        .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.5); }
+        body { 
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); 
+            min-height: 100vh; 
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+        }
+        .glass { 
+            background: rgba(255, 255, 255, 0.75); 
+            backdrop-filter: blur(12px); 
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.4); 
+        }
         .hidden { display: none; }
+        .card-hover {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+        }
     </style>
 </head>
 <body class="p-4 md:p-8">
 
     <div class="max-w-6xl mx-auto">
-        <header class="glass rounded-3xl p-6 mb-8 flex justify-between items-center shadow-sm">
-            <h1 class="text-2xl font-bold text-indigo-600"><i class="fas fa-hubspot mr-2"></i>Premium Collect</h1>
-            <div id="authSection">
-                <button id="btnLogin" class="bg-white border px-4 py-2 rounded-xl shadow-sm hover:bg-gray-50 flex items-center gap-2">
-                    <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" width="20"> Google 登入
-                </button>
-                <div id="userInfo" class="hidden flex items-center gap-4">
-                    <span id="userName" class="text-sm font-medium"></span>
-                    <button id="btnLogout" class="text-red-500 text-sm underline">登出</button>
+        <!-- 頂部列：狀態與模式 -->
+        <header class="glass rounded-3xl p-6 mb-6 flex flex-col sm:flex-row justify-between items-center gap-4 shadow-sm">
+            <div>
+                <h1 class="text-2xl font-bold text-indigo-600 flex items-center gap-2">
+                    <i class="fas fa-hubspot animate-pulse"></i> Premium Collect
+                </h1>
+                <p class="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                    <span id="syncModeDot" class="w-2 h-2 rounded-full bg-yellow-500 inline-block"></span>
+                    <span id="syncModeText">正在初始化連線...</span>
+                </p>
+            </div>
+            
+            <div id="authSection" class="flex items-center gap-3">
+                <div id="loadingUser" class="text-sm text-gray-500 flex items-center gap-2">
+                    <i class="fas fa-circle-notch animate-spin text-indigo-500"></i> 安全防禦驗證中...
+                </div>
+                
+                <div id="userInfo" class="hidden flex items-center gap-3">
+                    <div class="bg-indigo-50 px-3 py-1.5 rounded-full border border-indigo-100 flex items-center gap-2">
+                        <i class="fas fa-user-shield text-indigo-500"></i>
+                        <span id="userName" class="text-xs font-semibold text-indigo-700"></span>
+                    </div>
                 </div>
             </div>
         </header>
 
-        <section id="addSection" class="hidden glass rounded-3xl p-6 mb-8 shadow-sm">
-            <h2 class="text-lg font-bold mb-4">新增收藏資源</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <input type="text" id="resTitle" placeholder="資源名稱" class="border p-2 rounded-lg outline-none focus:ring-2 focus:ring-indigo-300">
-                <input type="text" id="resDesc" placeholder="簡短描述" class="border p-2 rounded-lg outline-none focus:ring-2 focus:ring-indigo-300">
-                <input type="file" id="resImg" accept="image/*" class="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+        <!-- Firestore 安全規則診斷面板 (僅在發生權限錯誤時顯示，美觀且極具指引性) -->
+        <div id="rulesDiagnosticPanel" class="hidden glass border-l-4 border-amber-500 rounded-3xl p-6 mb-8 shadow-md">
+            <div class="flex items-start gap-4">
+                <div class="p-3 bg-amber-100 text-amber-600 rounded-2xl text-xl">
+                    <i class="fas fa-key"></i>
+                </div>
+                <div class="flex-1">
+                    <h3 class="font-bold text-gray-800 text-lg">🔧 偵測到 Firestore 權限鎖定 (已啟動本地安全防護機制)</h3>
+                    <p class="text-sm text-gray-600 mt-1 leading-relaxed">
+                        您的 Firebase 雲端資料庫目前拒絕了讀寫請求。<b>我們已自動將您的網頁切換至「本地儲存模式」</b>，您現在仍可正常新增與瀏覽資源！若要恢復「雲端同步」，請按照以下步驟修正安全規則：
+                    </p>
+                    
+                    <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-gray-700">
+                        <div class="space-y-2">
+                            <p class="font-bold text-indigo-600"><i class="fas fa-circle-info mr-1"></i> 解鎖步驟：</p>
+                            <ol class="list-decimal pl-4 space-y-1">
+                                <li>開啟您的 <a href="https://console.firebase.google.com/" target="_blank" class="text-indigo-600 underline font-semibold hover:text-indigo-800">Firebase Console</a>。</li>
+                                <li>點擊左側選單的 <b>Firestore Database</b>。</li>
+                                <li>切換至頂部的 <b>Rules (規則)</b> 頁籤。</li>
+                                <li>將右側框中的程式碼<b>完全覆蓋</b>原本的規則。</li>
+                                <li>點擊右上角的 <b>Publish (發佈)</b>，等待約 1 分鐘即可恢復雲端同步！</li>
+                            </ol>
+                        </div>
+                        <div class="relative">
+                            <p class="font-bold text-emerald-600 mb-1"><i class="fas fa-code mr-1"></i> 請複製此規則代碼：</p>
+                            <pre id="rulesCode" class="bg-slate-900 text-slate-100 p-3 rounded-xl font-mono text-[11px] overflow-x-auto max-h-40 leading-normal"></pre>
+                            <button onclick="copyRules()" class="absolute right-2 top-7 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] px-2.5 py-1 rounded-lg flex items-center gap-1 transition">
+                                <i class="fas fa-copy"></i> 複製代碼
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <button id="btnSave" class="mt-4 bg-indigo-600 text-white px-6 py-2 rounded-xl hover:bg-indigo-700 transition">儲存到雲端</button>
+        </div>
+
+        <!-- 錯誤訊息提示盒 -->
+        <div id="errorAlert" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl mb-6 flex justify-between items-center">
+            <span id="errorMessage" class="text-sm"></span>
+            <button onclick="document.getElementById('errorAlert').classList.add('hidden')" class="text-red-500 hover:text-red-700 ml-4">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- 新增資源表單 -->
+        <section id="addSection" class="hidden glass rounded-3xl p-6 mb-8 shadow-sm">
+            <h2 class="text-lg font-bold mb-4 text-gray-800 flex items-center gap-2">
+                <i class="fas fa-plus-circle text-indigo-500"></i> 新增收藏資源
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="flex flex-col gap-1">
+                    <label class="text-xs font-bold text-gray-500 ml-1">資源名稱</label>
+                    <input type="text" id="resTitle" placeholder="例如：Tailwind CSS" class="border p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-indigo-300 bg-white/50">
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label class="text-xs font-bold text-gray-500 ml-1">簡短描述</label>
+                    <input type="text" id="resDesc" placeholder="請輸入說明..." class="border p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-indigo-300 bg-white/50">
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label class="text-xs font-bold text-gray-500 ml-1">上傳圖片（轉 Base64）</label>
+                    <input type="file" id="resImg" accept="image/*" class="text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                </div>
+            </div>
+            
+            <div class="mt-4 flex justify-between items-center">
+                <span id="storageInfo" class="text-xs text-gray-400"></span>
+                <button id="btnSave" class="bg-indigo-600 text-white px-6 py-2.5 rounded-xl hover:bg-indigo-700 transition flex items-center gap-2 font-medium shadow-md shadow-indigo-100">
+                    <i class="fas fa-cloud-arrow-up"></i> 儲存資源
+                </button>
+            </div>
         </section>
 
+        <!-- 資源列表區 -->
         <div id="itemsGrid" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="col-span-full text-center py-20 text-gray-500">
+                <i class="fas fa-circle-notch animate-spin text-3xl text-indigo-500 mb-3 block mx-auto"></i>
+                正在初始化安全同步通道...
             </div>
+        </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-app.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-firestore.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-firestore.js";
 
+        // Firebase 配置資訊
         const firebaseConfig = {
             apiKey: "AIzaSyAvzbn38rNQPmIwELxKUyVZBEyjpAat-oQ",
             authDomain: "collector-dca62.firebaseapp.com",
@@ -56,31 +152,97 @@
             appId: "1:552195102938:web:f03f20465829bd424dade3"
         };
 
+        const appId = typeof __app_id !== 'undefined' && __app_id ? __app_id : 'collector-dca62';
+
+        // 初始化 Firebase 服務
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const provider = new GoogleAuthProvider();
 
-        // --- 登入功能 ---
-        document.getElementById('btnLogin').onclick = () => signInWithPopup(auth, provider);
-        document.getElementById('btnLogout').onclick = () => signOut(auth);
+        let currentUser = null;
+        let isAuthInitialized = false;
+        let isLocalMode = false; // 雲端/本地模式切換旗標
+
+        // 預填診斷規則代碼，避開 JS 轉譯問題
+        document.getElementById('rulesCode').innerText = 
+`rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /artifacts/${appId}/public/data/resources/{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}`;
+
+        // 全域複製函式
+        window.copyRules = function() {
+            const code = document.getElementById('rulesCode').innerText;
+            const tempInput = document.createElement('textarea');
+            tempInput.value = code;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            
+            const btn = document.querySelector('[onclick="copyRules()"]');
+            btn.innerHTML = `<i class="fas fa-check"></i> 已複製`;
+            btn.className = btn.className.replace('bg-indigo-600', 'bg-emerald-600');
+            setTimeout(() => {
+                btn.innerHTML = `<i class="fas fa-copy"></i> 複製代碼`;
+                btn.className = btn.className.replace('bg-emerald-600', 'bg-indigo-600');
+            }, 2000);
+        };
+
+        function showError(msg) {
+            const errAlert = document.getElementById('errorAlert');
+            const errMsg = document.getElementById('errorMessage');
+            errMsg.innerHTML = msg;
+            errAlert.classList.remove('hidden');
+        }
+
+        // --- 核心規則 3：先進行驗證 (Auth Before Queries) ---
+        const initAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    try {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                        console.log("Firebase Auth: 已成功透過自訂 Token 登入");
+                        return;
+                    } catch (tokenErr) {
+                        console.warn("Firebase Auth: 自訂 Token 失敗，改用匿名登入...", tokenErr);
+                    }
+                }
+                await signInAnonymously(auth);
+                console.log("Firebase Auth: 匿名連線已建立");
+            } catch (err) {
+                console.error("Auth 驗證失敗:", err);
+                switchToLocalMode("驗證失敗，切換至本地模式");
+            }
+        };
+
+        initAuth();
 
         onAuthStateChanged(auth, (user) => {
-            const authSection = document.getElementById('btnLogin');
+            const loadingUser = document.getElementById('loadingUser');
             const userInfo = document.getElementById('userInfo');
             const addSection = document.getElementById('addSection');
             
             if (user) {
-                authSection.classList.add('hidden');
+                currentUser = user;
+                isAuthInitialized = true;
+                loadingUser.classList.add('hidden');
                 userInfo.classList.remove('hidden');
                 addSection.classList.remove('hidden');
-                document.getElementById('userName').innerText = `你好，${user.displayName}`;
-                loadData(); // 登入後讀取資料
+                document.getElementById('userName').innerText = `安全通道已建立 (${user.uid.substring(0, 6)})`;
+                
+                // 開始同步雲端資料
+                if (!isLocalMode) loadData(user);
             } else {
-                authSection.classList.remove('hidden');
+                currentUser = null;
+                isAuthInitialized = false;
+                loadingUser.classList.remove('hidden');
                 userInfo.classList.add('hidden');
                 addSection.classList.add('hidden');
-                document.getElementById('itemsGrid').innerHTML = '<p class="col-span-full text-center py-10 text-gray-400">請先登入以查看收藏</p>';
             }
         });
 
@@ -92,48 +254,177 @@
             reader.onerror = error => reject(error);
         });
 
-        // --- 儲存資料到 Firestore ---
+        // --- 儲存資料到雲端或本地 ---
         document.getElementById('btnSave').onclick = async () => {
-            const title = document.getElementById('resTitle').value;
-            const desc = document.getElementById('resDesc').value;
+            const title = document.getElementById('resTitle').value.trim();
+            const desc = document.getElementById('resDesc').value.trim();
             const imgFile = document.getElementById('resImg').files[0];
 
-            if (!title || !imgFile) return alert("請填寫名稱並選擇圖片");
+            if (!title) return showError("請輸入資源名稱！");
+            if (!imgFile) return showError("請選擇一張圖片！");
+            if (imgFile.size > 800000) return showError("圖片太大囉！請選擇小於 800KB 的圖片以確保順暢儲存。");
+
+            const btnSave = document.getElementById('btnSave');
+            btnSave.disabled = true;
+            btnSave.innerHTML = `<i class="fas fa-circle-notch animate-spin"></i> 處理中...`;
 
             try {
                 const base64Img = await toBase64(imgFile);
-                await addDoc(collection(db, "resources"), {
+                const itemData = {
+                    id: 'local_' + Date.now(),
                     title: title,
-                    desc: desc,
+                    desc: desc || "無額外描述",
                     image: base64Img,
-                    userId: auth.currentUser.uid,
-                    createdAt: new Date()
-                });
-                alert("儲存成功！");
+                    userId: currentUser ? currentUser.uid : 'LocalUser',
+                    createdAt: Date.now()
+                };
+
+                if (isLocalMode) {
+                    // 本地儲存模式
+                    saveToLocalStorage(itemData);
+                } else {
+                    // 雲端儲存模式
+                    const publicCollection = collection(db, 'artifacts', appId, 'public', 'data', 'resources');
+                    await addDoc(publicCollection, itemData);
+                }
+
+                // 成功後清空欄位
                 document.getElementById('resTitle').value = '';
                 document.getElementById('resDesc').value = '';
+                document.getElementById('resImg').value = '';
+                document.getElementById('errorAlert').classList.add('hidden');
             } catch (e) {
-                console.error("儲存失敗", e);
+                console.error("儲存失敗：", e);
+                showError("儲存失敗：" + e.message);
+            } finally {
+                btnSave.disabled = false;
+                btnSave.innerHTML = `<i class="fas fa-cloud-arrow-up"></i> 儲存資源`;
             }
         };
 
-        // --- 即時讀取資料 ---
-        function loadData() {
-            const q = query(collection(db, "resources"), orderBy("createdAt", "desc"));
-            onSnapshot(q, (snapshot) => {
-                const grid = document.getElementById('itemsGrid');
-                grid.innerHTML = '';
+        // --- 本地儲存 (LocalStorage) 運作引擎 ---
+        function saveToLocalStorage(newItem) {
+            let localData = [];
+            try {
+                localData = JSON.parse(localStorage.getItem('premium_collect_local') || '[]');
+            } catch (e) {
+                localData = [];
+            }
+            localData.push(newItem);
+            localStorage.setItem('premium_collect_local', JSON.stringify(localData));
+            renderList(localData);
+        }
+
+        function loadFromLocalStorage() {
+            try {
+                const localData = JSON.parse(localStorage.getItem('premium_collect_local') || '[]');
+                renderList(localData);
+            } catch (e) {
+                renderList([]);
+            }
+        }
+
+        // --- 雲端與本地切換邏輯 ---
+        function switchToLocalMode(reason) {
+            isLocalMode = true;
+            
+            // 介面更新為本地模式
+            const dot = document.getElementById('syncModeDot');
+            const text = document.getElementById('syncModeText');
+            dot.className = "w-2 h-2 rounded-full bg-orange-500 inline-block animate-pulse";
+            text.innerText = "運作模式：安全本地暫存 (雲端未解鎖)";
+            text.className = "text-orange-600 font-semibold";
+            
+            document.getElementById('storageInfo').innerText = "⚠️ 目前儲存在您的瀏覽器中";
+            document.getElementById('storageInfo').className = "text-xs text-orange-500 font-medium";
+
+            // 顯示診斷面板
+            document.getElementById('rulesDiagnosticPanel').classList.remove('hidden');
+
+            // 讀取本地資料
+            loadFromLocalStorage();
+        }
+
+        // --- 核心規則 2：不使用複雜的 orderBy 與 limit，避免產生複合索引錯誤 ---
+        function loadData(user) {
+            if (!user) return;
+
+            const publicCollection = collection(db, 'artifacts', appId, 'public', 'data', 'resources');
+
+            // 監聽雲端資料
+            onSnapshot(publicCollection, (snapshot) => {
+                // 如果能成功獲取 Snapshot，說明規則是通的，重置為雲端模式
+                isLocalMode = false;
+                const dot = document.getElementById('syncModeDot');
+                const text = document.getElementById('syncModeText');
+                dot.className = "w-2 h-2 rounded-full bg-emerald-500 inline-block";
+                text.innerText = "雲端即時同步中 (連線安全)";
+                text.className = "text-emerald-600 font-semibold";
+                document.getElementById('rulesDiagnosticPanel').classList.add('hidden');
+                document.getElementById('storageInfo').innerText = "☁️ 已開啟雲端高安全防護同步";
+                document.getElementById('storageInfo').className = "text-xs text-emerald-500 font-medium";
+
+                let resourcesList = [];
                 snapshot.forEach((doc) => {
                     const data = doc.data();
-                    const card = `
-                        <div class="glass p-4 rounded-3xl shadow-sm hover:shadow-md transition">
-                            <img src="${data.image}" class="w-full h-40 object-cover rounded-2xl mb-4">
-                            <h3 class="font-bold text-gray-800">${data.title}</h3>
-                            <p class="text-sm text-gray-500">${data.desc}</p>
-                        </div>
-                    `;
-                    grid.insertAdjacentHTML('beforeend', card);
+                    resourcesList.push({
+                        id: doc.id,
+                        ...data
+                    });
                 });
+
+                // 手動排序 (防止 Missing Index)
+                resourcesList.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                renderList(resourcesList);
+            }, (error) => {
+                // 如果回報權限錯誤，自動降級切換至本地儲存，確保完全不卡住使用者
+                if (error.code === 'permission-denied' || error.message.includes('permission')) {
+                    console.warn("Firestore snapshot failed due to permission rules. Switching to local mode fallback.");
+                    switchToLocalMode("雲端資料庫規則尚未啟用");
+                } else {
+                    console.error("Firestore error:", error);
+                    showError("連線異常：" + error.message);
+                }
+            });
+        }
+
+        // --- 渲染畫面功能 ---
+        function renderList(list) {
+            const grid = document.getElementById('itemsGrid');
+            grid.innerHTML = '';
+
+            if (list.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full text-center py-16 bg-white/40 rounded-3xl p-6 border border-dashed border-gray-300">
+                        <i class="fas fa-folder-open text-gray-400 text-4xl mb-3 block"></i>
+                        <p class="text-gray-500 font-medium">目前還沒有收藏任何資源</p>
+                        <p class="text-xs text-gray-400 mt-1">請使用上方表單開始新增您的第一個收藏吧！</p>
+                    </div>
+                `;
+                return;
+            }
+
+            list.forEach((item) => {
+                const card = `
+                    <div class="glass p-5 rounded-3xl card-hover flex flex-col justify-between shadow-sm">
+                        <div>
+                            <div class="relative w-full h-44 rounded-2xl overflow-hidden mb-4 bg-gray-100">
+                                <img src="${item.image}" alt="${item.title}" class="w-full h-full object-cover">
+                            </div>
+                            <h3 class="font-bold text-gray-800 text-lg mb-1">${item.title}</h3>
+                            <p class="text-sm text-gray-600 leading-relaxed mb-4 line-clamp-2">${item.desc}</p>
+                        </div>
+                        <div class="pt-3 border-t border-gray-200/50 flex justify-between items-center">
+                            <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                                ID: ${item.userId ? item.userId.substring(0, 6) : 'Local'}
+                            </span>
+                            <span class="text-xs ${isLocalMode ? 'text-amber-500 bg-amber-50' : 'text-indigo-500 bg-indigo-50'} font-semibold px-2 py-1 rounded-md">
+                                ${isLocalMode ? '瀏覽器暫存' : '已雲端同步'}
+                            </span>
+                        </div>
+                    </div>
+                `;
+                grid.insertAdjacentHTML('beforeend', card);
             });
         }
     </script>
